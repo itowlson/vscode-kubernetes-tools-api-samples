@@ -1,0 +1,47 @@
+{
+    "name": "stern",
+    "displayName": "stern",
+    "description": "Rich Kubernetes log tailing in Visual Studio Code",
+    "version": "0.0.1",
+    "publisher": "ms-kubernetes-tools",
+    "engines": {
+        "vscode": "^1.33.0"
+    },
+    "categories": [
+        "Other"
+    ],
+    "activationEvents": [
+        "onCommand:stern.followLogs"
+    ],
+    "main": "./out/extension",
+    "contributes": {
+        "commands": [
+            {
+                "command": "stern.followLogs",
+                "title": "Follow Logs using Stern"
+            }
+        ]
+    },
+    "scripts": {
+        "vscode:prepublish": "npm run compile",
+        "compile": "tsc -p ./",
+        "watch": "tsc -watch -p ./",
+        "postinstall": "node ./node_modules/vscode/bin/install",
+        "test": "npm run compile && node ./node_modules/vscode/bin/test"
+    },
+    "devDependencies": {
+        "typescript": "^2.6.1",
+        "vscode": "^1.1.6",
+        "tslint": "^5.8.0",
+        "@types/node": "^7.0.43",
+        "@types/mocha": "^2.2.42",
+        "@types/shelljs": "^0.8.3"
+    },
+    "dependencies": {
+        "shelljs": "^0.8.3",
+        "vscode-kubernetes-tools-api": "0.0.4"
+    },
+    "extensionDependencies": [
+        "ms-kubernetes-tools.vscode-kubernetes-tools"
+    ]
+}
