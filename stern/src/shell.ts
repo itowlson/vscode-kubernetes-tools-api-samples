@@ -8,15 +8,14 @@ export interface RunningProcess {
 }
 
 export function invokeTracking(command: string, args: string[]): RunningProcess {
-    console.log("INVOKING " + command);
     const linesSubject = new rx.Subject<string>();
-    let PENDING = '';
-    const obs = spawnrx.spawn(command, args);
-    obs.subscribe((chunk) => {
-        const todo = PENDING + chunk;
+    let pending = '';
+    const stdout = spawnrx.spawn(command, args);
+    stdout.subscribe((chunk) => {
+        const todo = pending + chunk;
         const lines = todo.split('\n').map((l) => l.trim());
-        const isWhole = todo.endsWith('\n');
-        PENDING = isWhole ? '' : lines.pop()!;
+        const lastIsWholeLine = todo.endsWith('\n');
+        pending = lastIsWholeLine ? '' : lines.pop()!;
         for (const line of lines) {
             linesSubject.next(line);
         }
