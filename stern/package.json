@@ -20,7 +20,15 @@
                 "command": "stern.followLogs",
                 "title": "Follow Logs using Stern"
             }
-        ]
+        ],
+        "menus": {
+            "view/item/context": [
+                {
+                    "command": "stern.followLogs",
+                    "when": "viewItem =~ /vsKubernetes\\.resource\\.(pod|deployment|service)/i"
+                }
+            ]
+        }
     },
     "scripts": {
         "vscode:prepublish": "npm run compile",
@@ -38,7 +46,9 @@
         "@types/shelljs": "^0.8.3"
     },
     "dependencies": {
+        "rxjs": "^6.4.0",
         "shelljs": "^0.8.3",
+        "spawn-rx": "^3.0.0",
         "vscode-kubernetes-tools-api": "0.0.4"
     },
     "extensionDependencies": [
