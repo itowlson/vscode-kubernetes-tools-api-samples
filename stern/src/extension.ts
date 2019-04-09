@@ -1,3 +1,4 @@
+import { Observable } from 'rxjs';
 import { filter, map } from 'rxjs/operators';
 import * as vscode from 'vscode';
 import * as k8s from 'vscode-kubernetes-tools-api';
@@ -76,7 +77,6 @@ async function selectorTarget(resourceId: string, matchLabelExtractor: (o: any) 
 }
 
 function tailLogsFor(target: LogTailTarget): void {
-    // const tracker = invokeTracking(`stern -l run=logspouter --tail 10 --color never --template "[[{{ .PodName}}/{{ .ContainerName}}]]{{ .Message}}" --timestamps`);
     const settings = [ '--tail', '10', '--color', 'never', '--template', '[[{{ .PodName}}/{{ .ContainerName}}]]{{ .Message}}', '--timestamps' ];
     const selectorArgs = target.selector ? [ '-l', target.selector ] : [];
     const podFilterArgs = target.podFilter ? [ target.podFilter ] : [];
@@ -88,6 +88,10 @@ function tailLogsFor(target: LogTailTarget): void {
         filter((e) => !!e),
         map((e) => e!)
     );
+    renderLogs(logs);
+}
+
+function renderLogs(logs: Observable<LogEntry>): void {
     logs.subscribe((le) => console.log(`|P>> ${le.podName} |C>> ${le.containerName} |T>> ${le.timestamp} |M>> ${le.message}`));
 }
 
