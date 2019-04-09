@@ -4,10 +4,17 @@ import * as vscode from 'vscode';
 import * as k8s from 'vscode-kubernetes-tools-api';
 
 import { invokeTracking } from './shell';
+import { LogEntry } from './log-entry';
+import { uriOf, LogsDocumentContentProvider, LOGS_SCHEME } from './logs-provider';
+
+const logsDocumentProvider = new LogsDocumentContentProvider();
 
 export function activate(context: vscode.ExtensionContext) {
-    const disposable = vscode.commands.registerCommand('stern.followLogs', followLogs);
-    context.subscriptions.push(disposable);
+    const disposables = [
+        vscode.commands.registerCommand('stern.followLogs', followLogs),
+        vscode.workspace.registerTextDocumentContentProvider(LOGS_SCHEME, logsDocumentProvider)
+    ];
+    context.subscriptions.push(...disposables);
 }
 
 async function followLogs(target?: any) {
@@ -43,13 +50,14 @@ async function followLogs(target?: any) {
 }
 
 interface LogTailTarget {
+    readonly resourceId: string;
     readonly podFilter: string | undefined;
     readonly selector: string | undefined;
 }
 
 async function tailTargetFor(node: k8s.ClusterExplorerV1.ClusterExplorerResourceNode, kubectl: k8s.KubectlV1): Promise<LogTailTarget | undefined> {
     if (node.resourceKind.manifestKind === 'Pod') {
-        return { podFilter: node.name, selector: undefined };
+        return { resourceId: `pod/${node.name}`, podFilter: node.name, selector: undefined };
     } else if (node.resourceKind.manifestKind === 'Deployment') {
         return await selectorTarget(`deployment/${node.name}`, (r) => r.spec.selector.matchLabels, kubectl);
     } else if (node.resourceKind.manifestKind === 'Service') {
@@ -73,7 +81,7 @@ async function selectorQuery(resourceId: string, matchLabelExtractor: (o: any) =
 
 async function selectorTarget(resourceId: string, matchLabelExtractor: (o: any) => any, kubectl: k8s.KubectlV1): Promise<LogTailTarget | undefined> {
     const selector = await selectorQuery(resourceId, matchLabelExtractor, kubectl);
-    return selector ? { podFilter: undefined, selector: selector } : undefined;
+    return selector ? { resourceId: resourceId, podFilter: undefined, selector: selector } : undefined;
 }
 
 function tailLogsFor(target: LogTailTarget): void {
@@ -88,18 +96,14 @@ function tailLogsFor(target: LogTailTarget): void {
         filter((e) => !!e),
         map((e) => e!)
     );
-    renderLogs(logs);
+    renderLogs(target.resourceId, logs);
 }
 
-function renderLogs(logs: Observable<LogEntry>): void {
-    logs.subscribe((le) => console.log(`|P>> ${le.podName} |C>> ${le.containerName} |T>> ${le.timestamp} |M>> ${le.message}`));
-}
-
-interface LogEntry {
-    readonly podName: string;
-    readonly containerName: string;
-    readonly timestamp: string;
-    readonly message: string;
+function renderLogs(resourceId: string, logs: Observable<LogEntry>): void {
+    logsDocumentProvider.register(resourceId, logs);  // TODO: the logic is all a bit flipped around right now - doc provider should pull instead of requiring registration
+    const uri = uriOf(resourceId);
+    vscode.commands.executeCommand("markdown.showPreview", uri);
+    // logs.subscribe((le) => console.log(`|P>> ${le.podName} |C>> ${le.containerName} |T>> ${le.timestamp} |M>> ${le.message}`));
 }
 
 const LOG_LINE_FORMAT = /\[\[([^/]+)\/([^\]]+)\]\](.+)/;
