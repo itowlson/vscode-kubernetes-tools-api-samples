@@ -155,9 +155,3 @@ function parseLogLine(line: string): LogEntry | undefined {
     }
     return undefined;
 }
-
-export function sleep(ms: number): Promise<void> {
-    return new Promise<void>((resolve) => {
-        setTimeout(resolve, ms);
-    });
-}
