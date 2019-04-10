@@ -6,6 +6,8 @@ import * as k8s from 'vscode-kubernetes-tools-api';
 import { invokeTracking } from './shell';
 import { LogEntry } from './log-entry';
 import { uriOf, LogsDocumentContentProvider, LOGS_SCHEME } from './logs-provider';
+import { Cancellable, CANCELLED } from './utils/cancellable';
+import { promptMany } from './utils/host';
 
 const logsDocumentProvider = new LogsDocumentContentProvider();
 
@@ -30,23 +32,28 @@ async function followLogs(target?: any) {
     }
 
     const targetNode = explorer.api.resolveCommandTarget(target);
-    if (!targetNode) {
-        vscode.window.showInformationMessage('TODO: handle the case where command is invoked from the palette');
-        return;
-    }
-    if (targetNode.nodeType !== 'resource') {
+    if (targetNode && targetNode.nodeType !== 'resource') {
         vscode.window.showErrorMessage(`Error: unexpected Follow Logs command on a ${targetNode.nodeType} tree node`);
         return;
     }
 
-    const tailTarget = await tailTargetFor(targetNode, kubectl.api);
+    const tailTarget = targetNode ? { cancelled: false, value: await tailTargetFor(targetNode, kubectl.api) } : await promptForTailTarget();
 
-    if (!tailTarget) {
-        vscode.window.showErrorMessage(`Error: unexpected Follow Logs command on a ${targetNode.resourceKind.manifestKind} tree node`);
+    if (tailTarget.cancelled) {
         return;
     }
 
-    tailLogsFor(tailTarget);
+    if (!tailTarget.value) {
+        vscode.window.showErrorMessage(`Error: unexpected Follow Logs command on a ${targetNode!.resourceKind.manifestKind} tree node`);
+        return;
+    }
+
+    if (tailTarget.value.podFilter === undefined && tailTarget.value.selector === undefined) {
+        vscode.window.showErrorMessage(`At least one of pod name filter and pod selector query is required`);
+        return;
+    }
+
+    tailLogsFor(tailTarget.value);
 }
 
 interface LogTailTarget {
@@ -65,6 +72,33 @@ async function tailTargetFor(node: k8s.ClusterExplorerV1.ClusterExplorerResource
     } else {
         return undefined;
     }
+}
+
+async function promptForTailTarget(): Promise<Cancellable<LogTailTarget>> {
+    const selection = await promptMany("How to select which pods to tail",
+        {
+            "Pod name match": { prompt: "Regular expression filter for pods to tail", placeHolder: "myapp-.+" },
+            "Pod selector query": { prompt: "Selector query for pods to tail", placeHolder: "run=myapplication" }
+        }
+    );
+
+    if (selection.cancelled) {
+        return CANCELLED;
+    }
+
+    const selector = selection.value["Pod selector query"];
+    const podFilter = selection.value["Pod name match"];
+    const resourceId = concatPresent(selector, podFilter);
+    return { cancelled: false, value: {
+        resourceId,
+        podFilter,
+        selector
+    }};
+}
+
+function concatPresent(...items: (string | undefined)[]): string {
+    const present = items.filter((i) => i !== undefined).map((i) => i!);
+    return present.join(', ');
 }
 
 async function selectorQuery(resourceId: string, matchLabelExtractor: (o: any) => any, kubectl: k8s.KubectlV1): Promise<string | undefined> {
