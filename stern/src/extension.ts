@@ -136,7 +136,7 @@ function tailLogsFor(target: LogTailTarget): void {
 function renderLogs(resourceId: string, logs: Observable<LogEntry>): void {
     logsDocumentProvider.register(resourceId, logs);  // TODO: the logic is all a bit flipped around right now - doc provider should pull instead of requiring registration
     const uri = uriOf(resourceId);
-    vscode.commands.executeCommand("markdown.showPreview", uri);
+    vscode.commands.executeCommand("markdown.showPreview", uri); // TODO: this is not good as you only get one preview window per editor group at the same time
     // logs.subscribe((le) => console.log(`|P>> ${le.podName} |C>> ${le.containerName} |T>> ${le.timestamp} |M>> ${le.message}`));
 }
 
